@@ -1,4 +1,4 @@
-"""Build and flash a CW-Nano firmware that leaves its active GPIOs Hi-Z."""
+"""Build and flash a CW-Nano Hi-Z firmware, optionally preserving UART pins."""
 
 import argparse
 import glob
@@ -16,19 +16,23 @@ BUILD_DIR = os.path.join(MCU_DIR, "simpleserial-base-hiz")
 SOURCE_FILE = "simpleserial-base.c"
 HEX_FILE = os.path.join(BUILD_DIR, "simpleserial-base-CWNANO.hex")
 
-HIZ_FUNCTION = """
+def hiz_function(keep_uart: bool) -> str:
+    pin_mask = "GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_7"
+    if not keep_uart:
+        pin_mask += " | GPIO_PIN_9 | GPIO_PIN_10"
+
+    return """
 static void target_gpio_hiz(void)
 {
     __HAL_RCC_GPIOA_CLK_ENABLE();
 
     GPIO_InitTypeDef gpio = {0};
-    gpio.Pin = GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_7
-             | GPIO_PIN_9 | GPIO_PIN_10;
+    gpio.Pin = PIN_MASK;
     gpio.Mode = GPIO_MODE_ANALOG;
     gpio.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &gpio);
 }
-"""
+""".replace("PIN_MASK", pin_mask)
 
 
 def build_env():
@@ -54,7 +58,7 @@ def build_env():
     return env
 
 
-def prepare_firmware():
+def prepare_firmware(keep_uart: bool = False):
     """Create a dedicated build copy; leave the installed example untouched."""
     os.makedirs(BUILD_DIR, exist_ok=True)
     for name in ("makefile", SOURCE_FILE):
@@ -79,7 +83,11 @@ def prepare_firmware():
     function_anchor = "uint8_t get_key("
     if code.count(function_anchor) != 1:
         raise RuntimeError("Impossible de localiser get_key().")
-    code = code.replace(function_anchor, HIZ_FUNCTION + "\n" + function_anchor, 1)
+    code = code.replace(
+        function_anchor,
+        hiz_function(keep_uart) + "\n" + function_anchor,
+        1,
+    )
 
     setup_anchor = (
         "trigger_setup(); // setup trigger pin, allows trigger_high() "
@@ -118,13 +126,19 @@ def build_firmware(env):
         raise FileNotFoundError(f"Firmware compilé introuvable : {HEX_FILE}")
 
 
-def flash_firmware():
+def flash_firmware(keep_uart: bool):
     scope = None
     try:
         scope = cw.scope()
         scope.default_setup()
         cw.program_target(scope, cw.programmers.STM32FProgrammer, HEX_FILE)
-        print("Firmware Hi-Z programmé sur la ChipWhisperer-Nano.")
+        if keep_uart:
+            print(
+                "Firmware Hi-Z avec UART TIO1/TIO2 active programmé "
+                "sur la ChipWhisperer-Nano."
+            )
+        else:
+            print("Firmware Hi-Z programmé sur la ChipWhisperer-Nano.")
     finally:
         if scope is not None:
             scope.dis()
@@ -137,14 +151,22 @@ def main():
         action="store_true",
         help="compile le firmware sans le programmer",
     )
+    parser.add_argument(
+        "--keep-uart",
+        action="store_true",
+        help=(
+            "laisser PA9/PA10 disponibles pour l'UART TIO1/TIO2 "
+            "(au lieu de les mettre en Hi-Z)"
+        ),
+    )
     args = parser.parse_args()
 
-    prepare_firmware()
+    prepare_firmware(args.keep_uart)
     build_firmware(build_env())
     if args.build_only:
         print(f"Compilation OK : {HEX_FILE}")
     else:
-        flash_firmware()
+        flash_firmware(args.keep_uart)
 
 
 if __name__ == "__main__":

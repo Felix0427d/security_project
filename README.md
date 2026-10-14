@@ -36,6 +36,8 @@ I could also have worked with a simple converter but I don't have this at home s
 
 -> Not really intresting but the arduino file of the interface can be found on the repo in the arduino_interface folder.
 
+The trigger Pin (13). Was also founnd using PulseView, and analysing the response when we were talking with the arduino while tring codes.
+
 ### 3. Fisrt communication with the board
 
 We now want to determine the baud rate for a clean communication. Fisrt, we had to make a schematic and to take out of the arduino uno board the micro controller. We had two things in mind by doing this:
@@ -44,8 +46,19 @@ We now want to determine the baud rate for a clean communication. Fisrt, we had 
     -> The second one, is to adapt the voltage from 3.3V (chipwhisperer) to 5V (arduino)
     
 <img width="532" height="298" alt="image" src="https://github.com/user-attachments/assets/290e9fe6-fe85-4764-9055-e8a527f4906c" />
-We also had to desolder the measure pin link between the ChipWhisperer and it's target. And put the target in high Ipedance mode, too avoid perturbing the measurements. (the python script I used to put the target in high impedance can be found on the high_imp folder
-)
-## D. Second part, timing analysis using the ChipWhisperer
-## E. Third part, finding the password, and capture the secret
-## F. Conclusion
+
+(The cabling is adapted to the real trigger, RX, and TX pins)
+
+We also had to desolder the measure pin link between the ChipWhisperer and it's target. And put the target in high Ipedance mode, too avoid perturbing the measurements. (the python script I used to put the target in high impedance can be found on the high_imp folder)
+
+Using the code content in baud_rate, we figured out that the baud rate is 9600, which is logical if we take a look at the source code.
+
+
+## D. Power analysis of the password length
+After hours spent trying to find the lenght of the password and still getting the same results. I figured out that maybe the lenght doesn't matters, and the arduino only looks at the first carachters. Which was a good intuition (or maybe a logical thing after 4 hours) This phase can be passed, because not necessary. But the code and results can be found on the folder password_lenght.
+
+## E. Power analysis to find the password
+
+
+## F. The Secret
+## G. Conclusion
