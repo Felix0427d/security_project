@@ -38,6 +38,11 @@ I could also have worked with a simple converter but I don't have this at home s
 
 ### 3. Fisrt communication with the board
 
+We now want to determine the baud rate for a clean communication. Fisrt, we had to make a schematic and to take out of the arduino uno board the micro controller. We had two things in mind by doing this:
+
+    -> The first one, make a power analysis with the ChipWhisperer 
+    -> The second one, is to adapt the voltage from 3.3V (chipwhisperer) to 5V (arduino)
+
 ## D. Second part, timing analysis using the ChipWhisperer
 ## E. Third part, finding the password, and capture the secret
 ## F. Conclusion
