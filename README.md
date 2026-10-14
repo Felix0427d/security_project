@@ -42,7 +42,8 @@ We now want to determine the baud rate for a clean communication. Fisrt, we had 
 
     -> The first one, make a power analysis with the ChipWhisperer 
     -> The second one, is to adapt the voltage from 3.3V (chipwhisperer) to 5V (arduino)
-
+    
+<img width="532" height="298" alt="image" src="https://github.com/user-attachments/assets/290e9fe6-fe85-4764-9055-e8a527f4906c" />
 We also had to desolder the measure pin link between the ChipWhisperer and it's target. And put the target in high Ipedance mode, too avoid perturbing the measurements. (the python script I used to put the target in high impedance can be found on the high_imp folder
 )
 ## D. Second part, timing analysis using the ChipWhisperer
