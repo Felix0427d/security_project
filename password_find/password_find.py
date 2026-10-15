@@ -1,55 +1,63 @@
 """Reproduce the password-first-character SPA analysis from the notebook."""
-
 import time
 from pathlib import Path
-
 import chipwhisperer as cw
 import matplotlib.pyplot as plt
 import numpy as np
 
-
+# Reglages des captures et delais necessaires au redemarrage de la cible.
 N_REPEAT = 5
 DIAGNOSTIC_REPEAT = 5
 RESET_PULSE_SECONDS = 0.05
 RESET_SETTLE_SECONDS = 0.3
 RESET_UART_TIMEOUT_MS = 100
+# Enregistre les figures a cote de ce script.
 PLOT_DIR = Path(__file__).resolve().parent
 
-
 def resync(target, timeout: int = 400) -> None:
-    """Drain pending UART data before starting a capture campaign."""
+    """Vide les donnees serie en attente avant une nouvelle capture."""
     target.ser.flush()
+    # Lit jusqu'a ce qu'il n'y ait plus de donnees, afin de repartir proprement.
     while target.ser.read(200, timeout=timeout):
         pass
     target.ser.flush()
 
-
 def reset_and_sync_target(scope, target) -> None:
-    """Reset the target and drain its startup UART output."""
+    """Redemarre la cible puis vide son message serie de demarrage."""
     scope.io.nrst = 0
     time.sleep(RESET_PULSE_SECONDS)
     scope.io.nrst = None
     time.sleep(RESET_SETTLE_SECONDS)
+    # Le redemarrage peut produire une reponse serie qui ne doit pas fausser l'essai.
     resync(target, timeout=RESET_UART_TIMEOUT_MS)
 
-
 def capture_guess(scope, target, guess: str) -> np.ndarray | None:
-    """Reset, send one guess, capture the trigger interval, and drain its response."""
+    """Envoie un candidat, capture la trace declenchee et lit la reponse serie."""
     reset_and_sync_target(scope, target)
+    # On arme avant l'envoi pour ne pas manquer le front du signal de trigger.
     scope.arm()
     target.ser.write((guess + "\n").encode("latin-1"))
     timed_out = scope.capture()
+    # Vide la reponse avant l'essai suivant pour garder une tentative par capture.
     target.ser.read(100, timeout=120)
     if timed_out:
         return None
     return scope.get_last_trace()
 
+def trace_activity(trace: np.ndarray) -> float:
+    """Estime l'activite par la variation entre echantillons, pas la duree du trigger."""
+    # Une trace plus variable obtient un score plus eleve sur une fenetre identique.
+    return float(np.abs(np.diff(trace)).sum())
 
-def collect_candidate_traces(scope, target) -> dict[str, np.ndarray]:
-    # Moyenne plusieurs captures par caractere pour reduire le bruit de mesure.
+def collect_candidate_traces(
+    scope, target
+) -> tuple[dict[str, np.ndarray], dict[str, float]]:
     traces = {}
+    activity_scores = {}
+    # Parcourt les caracteres ASCII imprimables de '!' a '~'.
     for codepoint in range(33, 127):
         character = chr(codepoint)
+        # Les captures en timeout sont ecartees; les autres sont conservees.
         captures = [
             trace
             for trace in (
@@ -58,123 +66,88 @@ def collect_candidate_traces(scope, target) -> dict[str, np.ndarray]:
             if trace is not None
         ]
         if captures:
+            # La trace moyenne sert aux graphiques et reduit le bruit aleatoire.
             traces[character] = np.mean(captures, axis=0)
-    return traces
+            # Score chaque capture avant la moyenne pour conserver l'activite mesuree.
+            activity_scores[character] = float(
+                np.mean([trace_activity(trace) for trace in captures])
+            )
+    return traces, activity_scores
 
-
-def analyze_traces(traces: dict[str, np.ndarray]):
-    if not traces:
+def analyze_traces(
+    traces: dict[str, np.ndarray], activity_scores: dict[str, float]
+):
+    # Sans mesure valide, un classement aurait un resultat trompeur.
+    if not traces or not activity_scores:
         raise RuntimeError(
             "Aucune trace valide n'a ete capturee; verifiez la connexion et le trigger."
         )
 
-    # Chaque ligne correspond a un caractere teste, chaque colonne a un echantillon.
-    characters = sorted(traces)
-    matrix = np.vstack([traces[character] for character in characters])
-
-    # La dispersion entre candidats permet de reperer l'instant le plus discriminant.
-    mean_power = matrix.mean(axis=0)
-    deviations = matrix - mean_power
-    spread = np.max(np.abs(deviations), axis=0)
-    leakage_sample = int(np.argmax(spread))
-
-    # Au point de fuite, les candidats les plus eloignes de la moyenne sont prioritaires.
-    scores = np.abs(deviations[:, leakage_sample])
+    # Le meilleur candidat est celui dont le score moyen d'activite est maximal.
+    characters = sorted(activity_scores)
+    scores = np.array([activity_scores[character] for character in characters])
     order = np.argsort(scores)[::-1]
     best = characters[order[0]]
 
-    return characters, matrix, spread, leakage_sample, scores, order, best
-
+    return characters, scores, order, best
 
 def save_and_show_plot(filename: str) -> None:
+    """Enregistre une figure puis l'affiche."""
     path = PLOT_DIR / filename
     plt.savefig(path, dpi=140)
     print(f"Plot enregistre : {path}")
     plt.show()
 
-
 def plot_results(
     traces: dict[str, np.ndarray],
     characters: list[str],
-    matrix: np.ndarray,
-    spread: np.ndarray,
-    leakage_sample: int,
     scores: np.ndarray,
-    best: str,
+    order: np.ndarray,
 ) -> None:
-    # La premiere figure localise l'echantillon ou les candidats divergent le plus.
-    plt.figure(figsize=(12, 3))
-    plt.plot(spread)
-    plt.axvline(
-        leakage_sample,
-        color="red",
-        ls="--",
-        label="instant de fuite @ {}".format(leakage_sample),
-    )
-    plt.title("Ecart max de puissance entre candidats (points de fuite SPA)")
-    plt.xlabel("echantillon")
-    plt.ylabel("|ecart| puissance")
-    plt.legend()
-    plt.tight_layout()
-    save_and_show_plot("password_leakage_spread.png")
-
-    # La deuxieme figure compare les formes d'onde autour de cet echantillon.
-    a = max(0, leakage_sample - 150)
-    b = min(matrix.shape[1], leakage_sample + 150)
-    plt.figure(figsize=(12, 4))
-    for character in characters:
-        plt.plot(
-            range(a, b),
-            traces[character][a:b],
-            color="lightgray",
-            linewidth=0.4,
-        )
-    if "f" in traces:
-        plt.plot(
-            range(a, b),
-            traces["f"][a:b],
-            color="red",
-            linewidth=1.6,
-            label="'f' (indice wiki)",
-        )
-    plt.plot(
-        range(a, b),
-        traces[best][a:b],
-        color="blue",
-        linewidth=1.0,
-        label="meilleur = {!r}".format(best),
-    )
-    plt.axvline(leakage_sample, color="k", ls=":")
-    plt.title("Puissance de chaque caractere autour de l'instant de fuite")
-    plt.xlabel("echantillon")
-    plt.ylabel("puissance")
-    plt.legend()
-    plt.tight_layout()
-    save_and_show_plot("password_candidate_traces_zoom.png")
-
-    # La troisieme figure classe les candidats selon leur ecart au point de fuite.
+    # Le score integre classe les candidats selon l'activite mesuree sur la trace entiere.
+    # Le rouge signale le caractere 'f' utilise comme point de comparaison connu.
     colors = ["red" if character == "f" else "steelblue" for character in characters]
     plt.figure(figsize=(14, 3))
     plt.bar(range(len(characters)), scores, color=colors)
     plt.xticks(range(len(characters)), characters, fontsize=7)
     plt.title(
-        "Amplitude de fuite de puissance a l'echantillon {}  ('f' en rouge)".format(
-            leakage_sample
-        )
+        "Variation totale (proxy d'activite) par candidat ('f' en rouge)"
     )
-    plt.ylabel("|ecart| puissance")
+    plt.xlabel("caractere candidat")
+    plt.ylabel("variation totale de puissance")
     plt.tight_layout()
-    save_and_show_plot("password_leakage_scores.png")
+    save_and_show_plot("password_candidate_activity.png")
 
+    # Compare les traces des candidats les mieux classes sur toute la fenetre capturee.
+    top_characters = [characters[index] for index in order[:5]]
+    # Ajoute aussi 'f' au graphique s'il ne fait pas partie des cinq premiers.
+    if "f" in traces and "f" not in top_characters:
+        top_characters.append("f")
+    plt.figure(figsize=(12, 4))
+    for character in top_characters:
+        plt.plot(
+            traces[character],
+            linewidth=1.0,
+            label="{} (score {:.2f})".format(
+                repr(character), scores[characters.index(character)]
+            ),
+        )
+    plt.title("Traces de puissance des candidats les plus actifs")
+    plt.xlabel("echantillon")
+    plt.ylabel("puissance")
+    plt.legend()
+    plt.tight_layout()
+    save_and_show_plot("password_candidate_activity_traces.png")
 
 def trace_moyenne(scope, target, character: str, n: int = DIAGNOSTIC_REPEAT):
+    """Capture plusieurs fois un caractere et renvoie sa trace moyenne."""
     captures = [
         trace
         for trace in (capture_guess(scope, target, character) for _ in range(n))
         if trace is not None
     ]
+    # Aucun resultat valide est signale par None pour eviter de tracer une fausse courbe.
     return np.mean(captures, axis=0) if captures else None
-
 
 def plot_diagnostic(scope, target) -> None:
     # Compare le caractere suppose correct a quelques essais incorrects connus.
@@ -185,6 +158,7 @@ def plot_diagnostic(scope, target) -> None:
         for character in false_characters
     }
 
+    # Premiere vue: comparer les traces moyennes sur toute leur longueur.
     plt.figure(figsize=(12, 4))
     for character, trace in false_traces.items():
         if trace is not None:
@@ -197,12 +171,17 @@ def plot_diagnostic(scope, target) -> None:
             label="'f' (suppose correct)",
         )
     plt.legend()
-    plt.title("Diagnostic : 'f' vs caracteres faux (moyenne x20)")
+    plt.title(
+        "Diagnostic : 'f' vs caracteres faux (moyenne x{})".format(
+            DIAGNOSTIC_REPEAT
+        )
+    )
     plt.xlabel("echantillon")
     plt.ylabel("puissance")
     plt.tight_layout()
     save_and_show_plot("password_diagnostic_full.png")
 
+    # Deuxieme vue: agrandir le debut, ou la comparaison du mot de passe commence.
     plt.figure(figsize=(12, 4))
     for character, trace in false_traces.items():
         if trace is not None:
@@ -235,7 +214,6 @@ def plot_diagnostic(scope, target) -> None:
             round(float(difference.max()), 2),
         )
 
-
 def main() -> None:
     scope = None
     target = None
@@ -246,6 +224,7 @@ def main() -> None:
         target = cw.target(scope, cw.targets.SimpleSerial2)
         target.baud = 9600
 
+        # Une capture test permet de verifier rapidement le branchement et le trigger.
         print("Connecte.")
         # Verifie qu'une capture fonctionne avant de lancer toute la campagne.
         test_trace = capture_guess(scope, target, "f")
@@ -256,30 +235,19 @@ def main() -> None:
             else "OK, %d samples" % len(test_trace),
         )
 
-        traces = collect_candidate_traces(scope, target)
-        (
-            characters,
-            matrix,
-            spread,
-            leakage_sample,
-            scores,
-            order,
-            best,
-        ) = analyze_traces(traces)
+        traces, activity_scores = collect_candidate_traces(scope, target)
+        characters, scores, order, best = analyze_traces(traces, activity_scores)
 
-        print("Instant de fuite (echantillon):", leakage_sample)
-        # Affiche le classement complet des meilleurs indices de premier caractere.
-        print("Top 10 par amplitude de fuite de PUISSANCE a cet instant:")
+        # Affiche les candidats classes par activite cumulee de leur trace.
+        print("Top 10 par variation totale (proxy d'activite):")
         for index in order[:10]:
             print(f"  {characters[index]!r} : {scores[index]:.4f}")
-        print("\n>>> 1er caractere le plus probable (puissance):", repr(best))
+        print("\n>>> 1er caractere le plus probable (activite):", repr(best))
         if "f" in characters:
             rank_f = list(order).index(characters.index("f")) + 1
             print(f"    ('f' est classe #{rank_f} sur {len(characters)})")
 
-        plot_results(
-            traces, characters, matrix, spread, leakage_sample, scores, best
-        )
+        plot_results(traces, characters, scores, order)
         plot_diagnostic(scope, target)
     finally:
         # Ferme les connexions meme si une capture ou l'analyse echoue.
@@ -288,7 +256,6 @@ def main() -> None:
         if scope is not None:
             scope.dis()
         print("Deconnecte.")
-
 
 if __name__ == "__main__":
     main()

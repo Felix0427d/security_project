@@ -57,14 +57,11 @@ Using the code content in baud_rate, we figured out that the baud rate is 9600, 
 
 ## D. Power analysis 
 
-
-
 ### 1. For password lenght
 
 After hours spent trying to find the lenght of the password and still getting the same results. I figured out that maybe the lenght doesn't matters, and the arduino only looks at the first carachters. Which was a good intuition (or maybe a logical thing after 4 hours) This phase can be passed, because not necessary. But the code and results can be found on the folder password_lenght.
 
 ### 2. For the password characters
-
 ### 3. Deeper analysis of the graphs
 
 ## F. The Secret
