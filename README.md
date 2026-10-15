@@ -20,6 +20,7 @@ Fore sure this wasn't a good idea in terms of surprise when cracking this case, 
 -> The source code Claude gave me can be found on the Repo. (Version of the code retreived by Claude Sonnet 5.5)
 
 ## C. First steps into the project
+
 ### 1. Pulse view
 First, as an hardware attack check, I wanted to check if there was any communications on several pins while reseting the arduino. To do this, I used the PulseView software, and the conclusion was that on the pin 11, there was a comunication at reset time. The most probable hypothesis was an UART communication with pin 11 as TX. 
 
@@ -38,7 +39,7 @@ I could also have worked with a simple converter but I don't have this at home s
 
 The trigger Pin (13). Was also founnd using PulseView, and analysing the response when we were talking with the arduino while tring codes.
 
-### 3. Fisrt communication with the board
+### 3. Baud Rate calculation
 
 We now want to determine the baud rate for a clean communication. Fisrt, we had to make a schematic and to take out of the arduino uno board the micro controller. We had two things in mind by doing this:
 
@@ -54,11 +55,19 @@ We also had to desolder the measure pin link between the ChipWhisperer and it's 
 Using the code content in baud_rate, we figured out that the baud rate is 9600, which is logical if we take a look at the source code.
 
 
-## D. Power analysis of the password length
+## D. Power analysis 
+
+
+
+### 1. For password lenght
+
 After hours spent trying to find the lenght of the password and still getting the same results. I figured out that maybe the lenght doesn't matters, and the arduino only looks at the first carachters. Which was a good intuition (or maybe a logical thing after 4 hours) This phase can be passed, because not necessary. But the code and results can be found on the folder password_lenght.
 
-## E. Power analysis to find the password
+### 2. For the password characters
 
+### 3. Deeper analysis of the graphs
 
 ## F. The Secret
+### 1. Before decryption
+### 2. How to decrypt it
 ## G. Conclusion
