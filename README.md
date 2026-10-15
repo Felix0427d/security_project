@@ -39,7 +39,10 @@ I could also have worked with a simple converter but I don't have this at home s
 
 The trigger Pin (13). Was also founnd using PulseView, and analysing the response when we were talking with the arduino while tring codes.
 
-### 3. Baud Rate calculation
+
+### 3. The real cabling adapted
+
+### 4. Baud Rate calculation
 
 We now want to determine the baud rate for a clean communication. Fisrt, we had to make a schematic and to take out of the arduino uno board the micro controller. We had two things in mind by doing this:
 
@@ -59,9 +62,11 @@ Using the code content in baud_rate, we figured out that the baud rate is 9600, 
 
 ### 1. For password lenght
 
-After hours spent trying to find the lenght of the password and still getting the same results. I figured out that maybe the lenght doesn't matters, and the arduino only looks at the first carachters. Which was a good intuition (or maybe a logical thing after 4 hours) This phase can be passed, because not necessary. But the code and results can be found on the folder password_lenght.
+After hours spent trying to find the lenght of the password and still getting the same results. I figured out that maybe the lenght doesn't matters, and the arduino only looks at the first carachters. Which was a good intuition (or maybe a logical thing after 4 hours) This phase can be passed, because not necessary. But the code and results can be found on the folder password_lenght. We can therefore see that as we get always close but different results, what we get only depends on the noise.
 
 ### 2. For the password characters
+
+In this phase, we have 3 important pins: trigger, power, uart communication
 ### 3. Deeper analysis of the graphs
 
 ## F. The Secret
