@@ -17,7 +17,8 @@ REFERENCE_CHARACTER = "\x01"
 UART_BAUD = 9600
 ADC_SAMPLES = 12000
 PLOT_SAMPLES = 2500
-TRACES_PER_LENGTH = 7
+TRACES_PER_LENGTH = 15
+ANALYSIS_SAMPLES = 200
 RESPONSE_TIMEOUT = 2.0
 UART_IDLE_TIMEOUT_MS = 50
 RESET_PULSE_SECONDS = 0.05
@@ -188,14 +189,34 @@ def collect_traces(
     return traces, reference_traces
 
 
-def median_traces(traces: dict[int, list[np.ndarray]]) -> dict[int, np.ndarray]:
+def mean_traces(traces: dict[int, list[np.ndarray]]) -> dict[int, np.ndarray]:
     return {
-        length: np.median(np.stack(waves, axis=0), axis=0)
+        length: np.mean(np.stack(waves, axis=0), axis=0)
         for length, waves in traces.items()
     }
 
 
-def plot_zoom(traces: dict[int, list[np.ndarray]], medians: dict[int, np.ndarray]):
+def analyze_lengths(mean_traces: dict[int, np.ndarray]):
+    """Classe les longueurs avec le score d'ecart de password_first."""
+    lengths = sorted(mean_traces)
+    if not lengths:
+        raise RuntimeError("Aucune trace moyenne disponible pour l'analyse.")
+
+    matrix = np.vstack([mean_traces[length] for length in lengths])
+    window_end = min(matrix.shape[1], ANALYSIS_SAMPLES)
+    if window_end == 0:
+        raise RuntimeError("Les traces ne contiennent aucun echantillon.")
+
+    trigger_window = matrix[:, :window_end]
+    mean_power = trigger_window.mean(axis=0)
+    deviations = trigger_window - mean_power
+    spread = np.max(np.abs(deviations), axis=0)
+    scores = np.mean(np.abs(deviations), axis=1)
+    order = np.argsort(scores)[::-1]
+    return lengths, matrix, deviations, spread, window_end, scores, order
+
+
+def plot_zoom(traces: dict[int, list[np.ndarray]], means: dict[int, np.ndarray]):
     lengths = sorted(traces)
     sample_count = min(
         PLOT_SAMPLES,
@@ -221,10 +242,10 @@ def plot_zoom(traces: dict[int, list[np.ndarray]], medians: dict[int, np.ndarray
             )
         axis.plot(
             samples,
-            medians[length][:sample_count],
+            means[length][:sample_count],
             color="black",
             linewidth=1.3,
-            label=f"Longueur {length} (mediane)",
+            label=f"Longueur {length} (moyenne)",
         )
         axis.set_ylabel(f"L={length}")
         axis.legend(loc="upper right")
@@ -235,8 +256,8 @@ def plot_zoom(traces: dict[int, list[np.ndarray]], medians: dict[int, np.ndarray
     figure.savefig(os.path.join(PLOT_DIR, "password_length_zoom.png"), dpi=140)
 
 
-def plot_adjacent_comparisons(medians: dict[int, np.ndarray]):
-    lengths = sorted(medians)
+def plot_adjacent_comparisons(means: dict[int, np.ndarray]):
+    lengths = sorted(means)
     pairs = list(zip(lengths, lengths[1:]))
     if not pairs:
         return
@@ -250,19 +271,19 @@ def plot_adjacent_comparisons(medians: dict[int, np.ndarray]):
         sharex=True,
     )
     axes = np.atleast_1d(axes).ravel()
-    sample_count = min(PLOT_SAMPLES, min(trace.size for trace in medians.values()))
+    sample_count = min(PLOT_SAMPLES, min(trace.size for trace in means.values()))
     samples = np.arange(sample_count)
-    plotted_traces = [trace[:sample_count] for trace in medians.values()]
+    plotted_traces = [trace[:sample_count] for trace in means.values()]
     shift = 1.2 * (
         max(float(trace.max()) for trace in plotted_traces)
         - min(float(trace.min()) for trace in plotted_traces)
     )
 
     for axis, (first, second) in zip(axes, pairs):
-        axis.plot(samples, medians[first][:sample_count], label=f"L={first}")
+        axis.plot(samples, means[first][:sample_count], label=f"L={first}")
         axis.plot(
             samples,
-            medians[second][:sample_count] - shift,
+            means[second][:sample_count] - shift,
             label=f"L={second} (decalee)",
         )
         axis.set_title(f"Longueur {first} vs {second}")
@@ -280,68 +301,35 @@ def plot_adjacent_comparisons(medians: dict[int, np.ndarray]):
     )
 
 
-def plot_difference_scores(medians: dict[int, np.ndarray]):
-    lengths = sorted(medians)
-    pairs = list(zip(lengths, lengths[1:]))
-    if not pairs:
-        return
-
-    sample_count = min(PLOT_SAMPLES, min(trace.size for trace in medians.values()))
-    scores = [
-        float(
-            np.sum(
-                np.abs(
-                    medians[second][:sample_count]
-                    - medians[first][:sample_count]
-                )
-            )
-        )
-        for first, second in pairs
-    ]
-    labels = [f"{first}->{second}" for first, second in pairs]
-
-    figure, axis = plt.subplots(figsize=(12, 5))
-    axis.bar(labels, scores)
-    axis.set_ylabel("Somme des differences absolues")
-    axis.set_xlabel("Longueurs comparees")
-    axis.set_title("Difference entre les traces medianes adjacentes")
-    figure.tight_layout()
-    figure.savefig(
-        os.path.join(PLOT_DIR, "password_length_scores.png"),
-        dpi=140,
-    )
-
-    for label, score in zip(labels, scores):
-        print(
-            f"Difference {label}: somme={score:.2f}, "
-            f"moyenne={score / sample_count:.6f} par echantillon"
-        )
-
-
 def plot_length_analysis(
-    medians: dict[int, np.ndarray], reference_medians: dict[int, np.ndarray]
+    means: dict[int, np.ndarray],
+    reference_means: dict[int, np.ndarray],
+    lengths: list[int],
+    deviations: np.ndarray,
+    spread: np.ndarray,
+    window_end: int,
+    scores: np.ndarray,
+    order: np.ndarray,
 ):
-    lengths = sorted(medians)
     if not lengths:
         return
 
     sample_count = min(
         PLOT_SAMPLES,
         min(
-            min(trace.size for trace in medians.values()),
-            min(trace.size for trace in reference_medians.values()),
+            min(trace.size for trace in means.values()),
+            min(trace.size for trace in reference_means.values()),
         ),
     )
     samples = np.arange(sample_count)
     colors = plt.get_cmap("Spectral", len(lengths))
-    figure, (trace_axis, diff_axis, score_axis) = plt.subplots(
+    figure, (trace_axis, spread_axis, score_axis) = plt.subplots(
         3, 1, figsize=(14, 11), sharex=False
     )
 
-    scores: list[float] = []
     for index, length in enumerate(lengths):
-        trace = medians[length][:sample_count]
-        reference_trace = reference_medians[length][:sample_count]
+        trace = means[length][:sample_count]
+        reference_trace = reference_means[length][:sample_count]
         color = colors(index)
         trace_axis.plot(
             samples,
@@ -360,49 +348,51 @@ def plot_length_analysis(
             linewidth=0.8,
             label=f"Reference L={length}",
         )
-        diff_axis.plot(
-            samples,
-            np.abs(trace - reference_trace),
+        spread_axis.plot(
+            np.arange(window_end),
+            np.abs(deviations[index]),
             color=color,
             alpha=0.65,
             linewidth=0.8,
+            label=f"L={length}",
         )
-        scores.append(float(np.sum(np.abs(trace - reference_trace))))
 
-    largest_difference = int(np.argmax(scores))
+    spread_axis.plot(
+        np.arange(window_end),
+        spread,
+        color="black",
+        linewidth=1.5,
+        label="Dispersion maximale",
+    )
+    spread_axis.set_title(
+        f"Ecart absolu a la moyenne des longueurs (0:{window_end})"
+    )
+    spread_axis.set_ylabel("|ecart| puissance")
+    spread_axis.set_xlabel("Echantillon apres le trigger")
+    spread_axis.legend(loc="upper right", ncol=2)
+
     bar_colors = [colors(index) for index in range(len(lengths))]
-    bar_colors[largest_difference] = "crimson"
+    bar_colors[order[0]] = "crimson"
     score_axis.bar(lengths, scores, color=bar_colors)
-    score_axis.set_ylabel("Somme des differences absolues")
+    score_axis.set_ylabel("Ecart absolu moyen")
     score_axis.set_xlabel("Longueur de la sonde")
     score_axis.set_title(
-        "Scores par longueur vs reference fixe invalide "
-        f"(plus grande difference: L={lengths[largest_difference]})"
+        f"Classement sur les {window_end} premiers echantillons "
+        f"(score maximal: L={lengths[order[0]]})"
     )
 
     trace_axis.set_title(
-        "Traces medianes par longueur (solide=sonde, pointille=reference)"
+        "Traces moyennes par longueur (solide=sonde, pointille=reference)"
     )
     trace_axis.set_ylabel("Amplitude")
     trace_axis.set_xlabel("Echantillon apres le trigger")
     trace_axis.legend(loc="upper right", ncol=2)
-    diff_axis.set_title(
-        "Difference absolue par rapport a la reference invalide de meme longueur"
-    )
-    diff_axis.set_ylabel("|trace - reference|")
-    diff_axis.set_xlabel("Echantillon apres le trigger")
     figure.tight_layout()
     figure.savefig(
         os.path.join(PLOT_DIR, "password_length_analysis.png"),
         dpi=140,
     )
-
-    for length, score in zip(lengths, scores):
-        print(
-            f"Score L={length} vs reference invalide fixe: "
-            f"somme={score:.2f}, moyenne={score / sample_count:.6f} "
-            "par echantillon"
-        )
+    figure.savefig(os.path.join(PLOT_DIR, "password_length_scores.png"), dpi=140)
 
 
 def main():
@@ -441,18 +431,44 @@ def main():
             scope.dis()
         print("Deconnecte.")
 
-    medians = median_traces(traces)
-    reference_medians = median_traces(reference_traces)
-    print(f"\nStatistiques des traces medianes (0:{PLOT_SAMPLES}):")
-    for length in sorted(medians):
-        print_trace_stats(f"Longueur {length}, mediane", medians[length])
+    means = mean_traces(traces)
+    reference_means = mean_traces(reference_traces)
+    (
+        lengths,
+        _,
+        deviations,
+        spread,
+        window_end,
+        scores,
+        order,
+    ) = analyze_lengths(means)
+
+    print(
+        f"\nAnalyse identique a password_first sur les {window_end} premiers "
+        "echantillons apres le trigger."
+    )
+    print("Classement des longueurs par ecart absolu moyen :")
+    for index in order:
+        print(f"  longueur {lengths[index]} : {scores[index]:.6f}")
+
+    print(f"\nStatistiques des traces moyennes (0:{PLOT_SAMPLES}):")
+    for length in sorted(means):
+        print_trace_stats(f"Longueur {length}, moyenne", means[length])
         print_trace_stats(
-            f"Longueur {length}, mediane reference", reference_medians[length]
+            f"Longueur {length}, moyenne reference", reference_means[length]
         )
-    plot_length_analysis(medians, reference_medians)
-    plot_zoom(traces, medians)
-    plot_adjacent_comparisons(medians)
-    plot_difference_scores(medians)
+    plot_length_analysis(
+        means,
+        reference_means,
+        lengths,
+        deviations,
+        spread,
+        window_end,
+        scores,
+        order,
+    )
+    plot_zoom(traces, means)
+    plot_adjacent_comparisons(means)
     print(f"Graphes enregistres dans : {PLOT_DIR}")
     plt.show()
 
