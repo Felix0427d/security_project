@@ -226,3 +226,47 @@ The recorded score is **4.1 (Medium)**.
 Score calculated on : "https://nvd.nist.gov/vuln-metrics/cvss/v4-calculator"
 
 ## H. Countermeasure
+
+The attack tree identifies two points where the attack can be made harder:
+physical access to the power-measurement point and repeated password attempts
+over the UART. These measures reduce the opportunity to exploit the weakness;
+they do not remove the physical side channel. A demonstration firmware
+implementing the UART controls and a fixed-length password comparison is in
+[countermeasure/secure_sketch.cpp](./countermeasure/secure_sketch.cpp).
+
+### 1. Restrict physical access to the measurement point
+
+Do not expose the microcontroller's supply rail, current-sense path, shunt, or
+measurement pads used to capture power traces. Keep these connections inside
+the device, avoid externally accessible test points, and protect the board in a
+tamper-resistant enclosure. Where maintenance access is necessary, reserve it
+for controlled servicing and use tamper-evident seals.
+
+This raises the effort needed to attach a probe and observe power consumption.
+It is not a complete defense against an attacker who can open or modify the
+device, so the design should also be checked for alternate access through
+power, ground, debug, or programming connections.
+
+### 2. Limit failed password attempts over UART
+
+Count consecutive failed attempts and apply a cooldown after a small
+configurable threshold. Increase the cooldown after repeated lockouts, and
+preserve the failure state across resets; otherwise, an attacker could simply
+restart the Arduino to clear the limit. A timed delay is preferable to a
+permanent lockout, which could let an attacker deny service by deliberately
+entering wrong passwords.
+
+This limits the rate at which an attacker can submit guesses and collect
+power traces. It therefore makes UART-assisted password discovery slower, but
+does not eliminate the side channel: an attacker may wait out the cooldown.
+The threshold and cooldown should be tested on the target and chosen to balance
+attack resistance with legitimate recovery from mistyped passwords.
+
+The example firmware allows five failed attempts, then applies a 30-second
+cooldown. Each repeated lockout doubles the delay, up to eight minutes. It
+stores the failure state in a wear-levelled EEPROM record ring so a reset does
+not immediately clear the limit; a reset during a cooldown restarts that
+cooldown. The sketch is a lab example, not production-ready secret storage: its
+password and protected data remain in firmware, and restricting access to the
+measurement point still requires a hardware enclosure and board-level design
+changes.
