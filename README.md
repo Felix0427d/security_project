@@ -38,7 +38,7 @@ I could also have worked with a simple converter but I don't have this at home s
 
 -> Not really intresting but the arduino file of the interface can be found on the repo in the arduino_interface folder.
 
-The trigger Pin (13). Was also founnd using PulseView, and analysing the response when we were talking with the arduino while trying codes.
+The trigger Pin (13). Was also founnd using PulseView, and analysing the response when we were talking with the arduino while trying codes on the input of the terminal (during the first communications).
 
 
 ### 3. The real cabling adapted
@@ -67,7 +67,10 @@ To perform power analysis. We need to access the power consumption of the board.
     -> On pin 19 of the PCB we connect the trigger, to visalize on the led the messages exanges.
     -> Pin 9 and 10 are linked to the external clock of the PCB
 
-End cabling :
+ -> End cabling :
+ 
+<img width="512" height="251" alt="Capture d&#39;écran 2026-10-20 094128" src="https://github.com/user-attachments/assets/c6afab4f-b491-481b-a6ce-8fbb65ad4b58" />
+
 
 NB : We also had to desolder the measure pin link between the ChipWhisperer and it's target. And put the target in high Ipedance mode, too avoid perturbing the measurements. (the python script I used to put the target in high impedance can be found on the high_imp folder)
 
