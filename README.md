@@ -69,7 +69,7 @@ To perform power analysis, we need to access the power consumption of the board.
 
  -> Final wiring:
  
-<img width="512" height="251" alt="Capture d&#39;écran 2026-10-20 094128" src="https://github.com/user-attachments/assets/c6afab4f-b491-481b-a6ce-8fbb65ad4b58" />
+<img width="1000" height="251" alt="Capture d&#39;écran 2026-10-20 094128" src="https://github.com/user-attachments/assets/c6afab4f-b491-481b-a6ce-8fbb65ad4b58" >
 
 
 NB: We also had to desolder the measurement-pin link between the ChipWhisperer and its target, and put the target in high-impedance mode to avoid perturbing the measurements. (The Python script I used to put the target in high impedance can be found in the high_imp folder.)
