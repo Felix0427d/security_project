@@ -13,12 +13,12 @@ The materials we used were:
 The options are quite wide, but taking into account that we mostly worked on hardware attacks during the labs, we can therefore deduce that this way of proceeding should be preferred.
 
 ## B. Before it gets serious
-The first thing I did while going through this project was to take the easy way: try to find the source code from the .elf file that was given as a starting point. First, I tried a website, which gave me the strings but couldn't find the entire code. But our good old Mr. Claude (Claude Sonnet 5.5) found a way to translate the .elf into source code (.cpp) super fast.
+The first thing I did while going through this project was to take the easy way: try to find the source code from the .elf file that was given as a starting point. First, I tried a website, which gave me the strings but couldn't find the entire code. But our good old Mr. Claude (Claude Sonnet 5.5) found a way to translate the .elf into C++ source code super fast.
 
 For sure, this wasn't a good idea if I wanted to be surprised when finding the secret. But as I couldn't resist, let's not be blind: this may (for sure) have introduced a certain bias into the way I viewed the project. That's why a small mention of this is important.
 
 -> Let's pretend this didn't happen
--> The source code Claude gave me can be found in the repo. (Version of the code retrieved by Claude Sonnet 5.5)
+-> The reconstructed source code is [source_code.cpp](./source_code/source_code.cpp). (Version of the code retrieved by Claude Sonnet 5.5)
 
 ## C. Attack Tree
 
@@ -43,7 +43,7 @@ By using another Arduino UNO, I connected the serial interface to the UART. This
 The way I proceeded in both cases was by trial and error with every pin on the board.
 I could also have worked with a simple converter, but I don't have one at home, so I used an Arduino.
 
--> Not really interesting, but the Arduino file for the interface can be found in the repo, in the arduino_interface folder.
+-> Not really interesting, but the Arduino UART bridge is in [interface.cpp](./arduino_interface/interface.cpp).
 
 The trigger pin (13) was also found using PulseView, by analyzing the response while communicating with the Arduino and entering codes in the terminal (during the first communications).
 
@@ -79,23 +79,23 @@ To perform power analysis, we need to access the power consumption of the board.
 <img width="1000" height="460" alt="Capture d&#39;écran 2026-10-20 094128" src="https://github.com/user-attachments/assets/c6afab4f-b491-481b-a6ce-8fbb65ad4b58" >
 
 
-NB: We also had to desolder the measurement-pin link between the ChipWhisperer and its target, and put the target in high-impedance mode to avoid perturbing the measurements. (The Python script I used to put the target in high impedance can be found in the high_imp folder.)
+NB: We also had to desolder the measurement-pin link between the ChipWhisperer and its target, and put the target in high-impedance mode to avoid perturbing the measurements. The script used to put the target in high impedance is [target_hiz.py](./high_imp/target_hiz.py).
 
 
 ### 4. Baud rate calculation
 
 We now want to determine the baud rate for clean communication.
 
-Using the code in baud_rate, we figured out that the baud rate is 9600, which is logical if we take a look at the source code.
+Using [uart_timing.py](./baud_rate/uart_timing.py), we figured out that the baud rate is 9600, which is logical if we take a look at the source code.
 
 
 ## E. Power analysis 
 
 ### 1. For password length
 
-After hours spent trying to find the length of the password and still getting the same results, I figured out that maybe the length doesn't matter, and the Arduino only looks at the first characters. This was a good intuition (or maybe a logical thing after 4 hours). This phase can be skipped because it is not necessary. But the code and results can be found in the password_lenght folder. We can therefore see that, as we always get close but different results, what we get only depends on the noise.
+After hours spent trying to find the length of the password and still getting the same results, I figured out that maybe the length doesn't matter, and the Arduino only looks at the first characters. This was a good intuition (or maybe a logical thing after 4 hours). This phase can be skipped because it is not necessary. The [password_lenght folder](./password_lenght/) contains the code and results. We can therefore see that, as we always get close but different results, what we get only depends on the noise.
 
-We can confirm this suposition by entering the password on the terminal interface in the source code folder. If we enter "f7-@Jp0w" and "f7-@Jp0waaa". We get "ACCESS GRANTED" for boths.
+We can confirm this suposition using the [UART terminal](./source_code/uart_terminal.py). If we enter "f7-@Jp0w" and "f7-@Jp0waaa", we get "ACCESS GRANTED" for both.
 
 ### 2. For the password characters
 
@@ -125,9 +125,9 @@ differences may change the power trace. The trigger helps compare traces from
 a consistent point in time, but it does not itself reveal which character is
 correct.
 
-The script in `password_find/password_first.py` tests printable ASCII
+The script [password_first.py](./password_find/password_first.py) tests printable ASCII
 characters from `!` to `~`, averaging 15 captures per candidate. The
-sequential search in `password_find/password_full.py` starts from the
+sequential search in [password_full.py](./password_find/password_full.py) starts from the
 presumed prefix `f` and uses up to 30 captures per candidate. Averaging can
 reduce random variation, but it cannot remove all noise or make a trace
 unique to a character. The power score is therefore a way to rank candidates,
@@ -143,14 +143,14 @@ as well as noise. The traces are not expected to look like a clean digital
 code: many operations happen close together, and unrelated activity
 contributes to the same measurement.
 
-![Candidate power traces aligned on the trigger](password_find/password_trigger_power_traces.png)
+[![Candidate power traces aligned on the trigger](password_find/password_trigger_power_traces.png)](password_find/password_trigger_power_traces.png)
 
 Sample 0 corresponds to the trigger edge. The gray curves show each
 candidate's averaged trace; the red curve is `f`, and the blue curve is the
 highest-scoring candidate. Their substantial overlap is a reminder that
 small physical differences are difficult to distinguish from noise by eye.
 
-<img src="password_find/password_trigger_power_scores.png" alt="Candidate score comparison">
+<a href="password_find/password_trigger_power_scores.png"><img src="password_find/password_trigger_power_scores.png" alt="Candidate score comparison"></a>
 
 To summarize those curves, the script calculates the mean absolute deviation
 of each candidate's averaged trace from the average trace across all
@@ -167,7 +167,7 @@ difference between a physical side-channel observation and a confirmed
 firmware result: the power trace suggests candidates, while the UART
 acceptance message settles the decision.
 
-![Final-position candidate scores](password_find/password_full_plots/position_08_scores.png)
+[![Final-position candidate scores](password_find/password_full_plots/position_08_scores.png)](password_find/password_full_plots/position_08_scores.png)
 
 Overall, the measurement is an indirect and noisy consequence of switching
 activity inside the processor. Trigger alignment makes comparisons more
