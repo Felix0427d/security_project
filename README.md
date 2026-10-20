@@ -20,7 +20,10 @@ For sure, this wasn't a good idea if I wanted to be surprised when finding the s
 -> Let's pretend this didn't happen
 -> The source code Claude gave me can be found in the repo. (Version of the code retrieved by Claude Sonnet 5.5)
 
-## C. First steps into the project
+## C. Attack Tree
+
+
+## D. First steps into the attack
 
 ### 1. PulseView
 First, as a hardware-attack check, I wanted to see if there was any communication on several pins while resetting the Arduino. To do this, I used the PulseView software. I found communication on pin 11 at reset time. The most probable hypothesis was that this was UART communication, with pin 11 as TX.
@@ -82,11 +85,13 @@ We now want to determine the baud rate for clean communication.
 Using the code in baud_rate, we figured out that the baud rate is 9600, which is logical if we take a look at the source code.
 
 
-## D. Power analysis 
+## E. Power analysis 
 
 ### 1. For password length
 
 After hours spent trying to find the length of the password and still getting the same results, I figured out that maybe the length doesn't matter, and the Arduino only looks at the first characters. This was a good intuition (or maybe a logical thing after 4 hours). This phase can be skipped because it is not necessary. But the code and results can be found in the password_lenght folder. We can therefore see that, as we always get close but different results, what we get only depends on the noise.
+
+We can confirm this suposition by entering the password on the terminal interface in the source code folder. If we enter "f7-@Jp0w" and "f7-@Jp0waaa". We get "ACCESS GRANTED" for boths.
 
 ### 2. For the password characters
 
@@ -168,6 +173,11 @@ this experiment, power analysis guides the search; the target's UART response
 confirms the result.
 
 ## F. The Secret
-### 1. Before decryption
-### 2. How to decrypt it
-## G. Conclusion
+
+The secret retreived is :
+"Here is your salt: 643A3823
+Here is your hash: 35F14EE7A7BA11A4852335A7D8D60E5B49F6EEDE46627CDA79CCA8D043AC028A"
+
+Using this website (https://hashes.com/en/tools/hash_identifier) : I retreived that this hash was hashed with SHA-256. 
+
+## G. Severity of the attack
