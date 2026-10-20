@@ -184,6 +184,9 @@ Here is your hash: 35F14EE7A7BA11A4852335A7D8D60E5B49F6EEDE46627CDA79CCA8D043AC0
 
 Using this website (https://hashes.com/en/tools/hash_identifier) : I retreived that this hash was hashed with SHA-256. 
 
+
+-> By reading the source code, we know that the secret is "je suis une petite tortue".
+
 ## G. Severity of the attack
 
 ### CVSS v4.0 Base Metrics
