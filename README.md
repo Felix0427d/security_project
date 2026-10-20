@@ -24,7 +24,9 @@ For sure, this wasn't a good idea if I wanted to be surprised when finding the s
 
 The tree below separates identification from exploitation. It focuses on the power-analysis leakage observed during password validation; the UART is used to submit and confirm the candidate.
 
-img\Capture d'écran 2026-10-20 122845.png
+<img width="1200" height="490" alt="Capture d&#39;écran 2026-10-20 122845" src="https://github.com/user-attachments/assets/2bd4b485-1332-4674-8413-ecfaa3f2c7b8" />
+
+
 ## D. First steps into the attack
 
 ### 1. PulseView
