@@ -90,9 +90,82 @@ After hours spent trying to find the lenght of the password and still getting th
 
 ### 2. For the password characters
 
-In this phase, we have 3 important liaisons: trigger, power, uart communication
+This stage combines three signals: the trigger, the power measurement, and
+the UART response. They have different roles: the trigger gives a timing
+reference, the power trace reflects activity inside the microcontroller, and
+the UART response reports the firmware's decision.
+
+At the physical level, a microcontroller does not consume exactly the same
+current during every instruction. In CMOS logic, transistors draw dynamic
+current as internal capacitances are charged and discharged. A simplified
+model is
+
+`P_dynamic ≈ α · C · V² · f`
+
+where `α` represents switching activity, `C` the effective capacitance, `V`
+the supply voltage, and `f` the clock frequency. The measured voltage across
+the current-sense path therefore changes with the processor's activity. It
+also contains unrelated contributions from other instructions, peripherals,
+the clock, and measurement noise; it is not a direct reading of the password
+or of a single instruction.
+
+Consequently, different guesses can make the processor follow different instruction paths
+and perform different amounts of work. If a guess matches a longer prefix,
+the comparison can proceed further before it exits. Those small execution
+differences may change the power trace. The trigger helps compare traces from
+a consistent point in time, but it does not itself reveal which character is
+correct.
+
+The script in `password_find/password_first.py` tests printable ASCII
+characters from `!` to `~`, averaging 15 captures per candidate. The
+sequential search in `password_find/password_full.py` starts from the
+presumed prefix `f` and uses up to 30 captures per candidate. Averaging can
+reduce random variation, but it cannot remove all noise or make a trace
+unique to a character. The power score is therefore a way to rank candidates,
+not proof of a match. The UART response `ACCESS GRANTED` confirms that the
+complete candidate is correct.
 
 ### 3. Deeper analysis of the graphs
+
+The first plot overlays the candidate traces after aligning them on the
+trigger. Physically, each curve is a time-varying measurement related to the
+target's current consumption; its peaks and dips reflect switching activity
+as well as noise. The traces are not expected to look like a clean digital
+code: many operations happen close together, and unrelated activity
+contributes to the same measurement.
+
+![Candidate power traces aligned on the trigger](password_find/password_trigger_power_traces.png)
+
+Sample 0 corresponds to the trigger edge. The grey curves show each
+candidate's averaged trace; the red curve is `f`, and the blue curve is the
+highest-scoring candidate. Their substantial overlap is a reminder that
+small physical differences are difficult to distinguish from noise by eye.
+
+![Candidate score comparison](password_find/password_trigger_power_scores.png)
+
+To summarize those curves, the script calculates each candidate's mean
+absolute deviation from the average trace across candidates, over the first
+200 samples after the trigger. A large score means that a candidate's
+averaged trace differs more from the group in this window. It does not
+directly measure how many password characters matched, nor does it establish
+that the difference was caused by the comparison rather than by residual
+variation.
+
+The position-by-position plots show this limitation in the sequential
+search. At the final position, the power score ranks `9` above `w`, but the
+target's UART response confirms `w`. This is a useful example of the
+difference between a physical side-channel observation and a confirmed
+firmware result: the power trace suggests candidates, while the UART
+acceptance message settles the decision.
+
+![Final-position candidate scores](password_find/password_full_plots/position_08_scores.png)
+
+Overall, the measurement is an indirect and noisy consequence of switching
+activity inside the processor. Trigger alignment makes comparisons more
+meaningful, and averaging reduces some random variation, but neither
+technique turns the power score into a direct measurement of the secret. In
+this experiment, power analysis guides the search; the target's UART response
+confirms the result.
 
 ## F. The Secret
 ### 1. Before decryption
