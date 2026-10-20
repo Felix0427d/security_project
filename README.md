@@ -5,7 +5,7 @@ The goal of this project is to find a secret and a password, both hashed, contai
 
 The materials we used were:
 - Arduino UNO board
-- ChipWhisperer card (used to perform side-channel attacks and fault injections during the labs)
+- ChipWhisperer NANO card (used to perform side-channel attacks and fault injections during the labs)
 - An ELF file that we had to flash onto the Arduino
 - Our good old computer
 - Resistors, capacitors, and cables
@@ -186,5 +186,43 @@ Using this website (https://hashes.com/en/tools/hash_identifier) : I retreived t
 
 ## G. Severity of the attack
 
+### CVSS v4.0 Base Metrics
+
+This assessment covers password recovery by power analysis, followed by access
+to the protected routine over UART.
+
+**Exploitability**
+
+- **AV:P — Physical:** the attacker needs physical access to the Arduino and
+  power-measurement setup.
+- **AC:L — Low:** no security mechanism must be bypassed once the setup is
+  connected.
+- **AT:P — Present:** the attack requires a target setup that exposes power
+  consumption for measurement and allows UART communication.
+- **PR:N — None:** no account or prior privilege is needed.
+- **UI:N — None:** no other user needs to take an action.
+
+**Impact on the Arduino**
+
+- **VC:H — High:** recovering the password exposes the protected routine's
+  output, which is the project's protected asset. If the hash is not
+  recoverable and only the hash itself is disclosed, consider **VC:L** instead.
+- **VI:N — None:** the demonstrated attack does not modify firmware or data.
+- **VA:N — None:** no lasting service interruption is demonstrated.
+
+**Impact on subsequent systems**
+
+- **SC:N — None:** no downstream system's information is exposed.
+- **SI:N — None:** no downstream system is modified.
+- **SA:N — None:** no downstream system becomes unavailable.
+
+**Base vector**
+
+```text
+CVSS:4.0/AV:P/AC:L/AT:P/PR:N/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N
+```
+
+The recorded score is **4.1 (Medium)**. 
+Score calculated on : "https://nvd.nist.gov/vuln-metrics/cvss/v4-calculator"
 
 ## H. Countermeasure
