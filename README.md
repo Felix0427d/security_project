@@ -1,92 +1,92 @@
 # Security project
 
-## A. Project's objectives
-The goal of this project is to find a secret and password, both hashed, contained in an Arduino firmware. 
+## A. Project objectives
+The goal of this project is to find a secret and a password, both hashed, contained in Arduino firmware.
 
-As materials, we got :
+The materials we used were:
 - Arduino UNO board
-- ChipWhisper card (used to perform side channel attacks and fault injections during the labs)
-- A .elf file we had to flash into the arduino
+- ChipWhisperer card (used to perform side-channel attacks and fault injections during the labs)
+- An ELF file that we had to flash onto the Arduino
 - Our good old computer
-- Resistors, capacitors,and cables
+- Resistors, capacitors, and cables
   
-Options are quiet wide, but taking into account that we mostly worked on hardware attacks during the labs, we can therefore deduce that this way of proceeding should be prefered.
+The options are quite wide, but taking into account that we mostly worked on hardware attacks during the labs, we can therefore deduce that this way of proceeding should be preferred.
 
 ## B. Before it gets serious
-First thingh I've done while going through this project, was the easy way. Trying to find the source code with the .elf file that was given as starting point. First I tried via a website, which gave me the strings but couldn't find the entire code. But our good old mister Claude (Claude Sonnet 5.5) foun'd a way to traduce the .elf into the source code (.cpp) super fastly. 
+The first thing I did while going through this project was to take the easy way: try to find the source code from the .elf file that was given as a starting point. First, I tried a website, which gave me the strings but couldn't find the entire code. But our good old Mr. Claude (Claude Sonnet 5.5) found a way to translate the .elf into source code (.cpp) super fast.
 
-Fore sure this wasn't a good idea in terms of surprise when trying to find the secret, but as I couldn't resist, let's not be blind, this may (for sure) had inroduce in my way to see the project, a certain bias. That's why, a small mention of this is important.
+For sure, this wasn't a good idea if I wanted to be surprised when finding the secret. But as I couldn't resist, let's not be blind: this may (for sure) have introduced a certain bias into the way I viewed the project. That's why a small mention of this is important.
 
--> Let's pretend this didn't happend
--> The source code Claude gave me can be found on the Repo. (Version of the code retreived by Claude Sonnet 5.5)
+-> Let's pretend this didn't happen
+-> The source code Claude gave me can be found in the repo. (Version of the code retrieved by Claude Sonnet 5.5)
 
 ## C. First steps into the project
 
-### 1. Pulse view
-First, as an hardware attack check, I wanted to check if there was any communications on several pins while reseting the arduino. To do this, I used the PulseView software, and the conclusion was that on the pin 11, there was a comunication at reset time. The most probable hypothesis was an UART communication with pin 11 as TX. 
+### 1. PulseView
+First, as a hardware-attack check, I wanted to see if there was any communication on several pins while resetting the Arduino. To do this, I used the PulseView software. I found communication on pin 11 at reset time. The most probable hypothesis was that this was UART communication, with pin 11 as TX.
 
 <img width="1262" height="706" alt="image" src="https://github.com/user-attachments/assets/755f29d8-795b-4c4e-987b-f6b2639547fe" />
 
-On the image above we can see the packet send by pin 11.
+In the image above, we can see the packet sent by pin 11.
 
 ### 2. Finding the RX pin
 
-By using another arduino UNO, I interfaced the serial into UART serial. This made me able to indentify which pin was the RX one. When I cabled the TX pin of the interface Arduino into the Pin 10 of the arduino we wanted to crack. The RX led was blincking when trying to send messages. This was a nice gift from the arduino, as this could comfirm the hypothesis of an UART connection on pin 10(RX) and 11(TX). 
+By using another Arduino UNO, I connected the serial interface to the UART. This helped me identify which pin was RX. When I connected the TX pin of the interface Arduino to pin 10 of the Arduino we wanted to crack, the RX LED blinked when I tried to send messages. This was a nice gift from the Arduino, as it confirmed the hypothesis of a UART connection on pins 10 (RX) and 11 (TX).
 
-The way I proceed in both cases was an "essai erreur" with every pins on the board. 
-I could also have worked with a simple converter but I don't have this at home so I used an Arduino.
+The way I proceeded in both cases was by trial and error with every pin on the board.
+I could also have worked with a simple converter, but I don't have one at home, so I used an Arduino.
 
--> Not really intresting but the arduino file of the interface can be found on the repo in the arduino_interface folder.
+-> Not really interesting, but the Arduino file for the interface can be found in the repo, in the arduino_interface folder.
 
-The trigger Pin (13). Was also founnd using PulseView, and analysing the response when we were talking with the arduino while trying codes on the input of the terminal (during the first communications).
+The trigger pin (13) was also found using PulseView, by analyzing the response while communicating with the Arduino and entering codes in the terminal (during the first communications).
 
 
-### 3. The real cabling adapted
+### 3. The adapted wiring
 
-To perform power analysis. We need to access the power consumption of the board. We need to put the probe of the chipwhisperer between the numerical alimentation and ground. Without forgetting to put a resistor that will serve as a shunt. 
+To perform power analysis, we need to access the power consumption of the board. We need to put the ChipWhisperer probe between the digital power supply and ground. We also need to put in a resistor that will serve as a shunt.
 
-    ATMEGA side (microcontroller on the arduino PCB):
+    ATmega side (microcontroller on the Arduino PCB):
 
     -> Reset pin (pin 1), connected to the reset pin of the PCB
-    -> As we deduced before, the UART pins on the PCB where pin 10 and 11. Those pins corresponds to the pins 16 and 17 on the ATMEGA.
-    -> The trigger pins also changes : pin number 13 on the PCB corresponds to pin 19 on the ATMEGA.
-    -> We measure the tension at the entrance on pin 7.
-    -> Pin 9 and 10 are linked to the external clock of the PCB
+    -> As we deduced before, the UART pins on the PCB were pins 10 and 11. Those pins correspond to pins 16 and 17 on the ATmega.
+    -> The trigger pin also changes: pin 13 on the PCB corresponds to pin 19 on the ATmega.
+    -> We measure the voltage at the input on pin 7.
+    -> Pins 9 and 10 are linked to the external clock of the PCB
 
-    Chipwhisperer side :
+    ChipWhisperer side:
 
-    -> On the probe pin, we connect to pin 7 of the arduino
-    -> Ground and VCC connected to the breadboard. Common ground with the arduino. But tension divider between the two VCC
-    -> TIO1 AND TIO2 used as UART
-    -> TIO4 used as inout trigger pin
+    -> The probe pin is connected to pin 7 of the Arduino
+    -> Ground and VCC are connected to the breadboard. The Arduino and ChipWhisperer share a common ground, but a voltage divider is used between the two VCC lines.
+    -> TIO1 and TIO2 are used as UART
+    -> TIO4 is used as the input trigger pin
 
-    ARDUINO PCB side :
+    Arduino PCB side:
 
-    -> Connection of the Ground and VCC to the breadboard
-    -> Connection of the reset button (pin reset)
-    -> On pin 19 of the PCB we connect the trigger, to visalize on the led the messages exanges.
-    -> Pin 9 and 10 are linked to the external clock of the PCB
+    -> Ground and VCC are connected to the breadboard
+    -> The reset button is connected (reset pin)
+    -> The trigger is connected to pin 19 of the PCB, to visualize the exchanged messages on the LED.
+    -> Pins 9 and 10 are linked to the external clock of the PCB
 
- -> End cabling :
+ -> Final wiring:
  
 <img width="512" height="251" alt="Capture d&#39;écran 2026-10-20 094128" src="https://github.com/user-attachments/assets/c6afab4f-b491-481b-a6ce-8fbb65ad4b58" />
 
 
-NB : We also had to desolder the measure pin link between the ChipWhisperer and it's target. And put the target in high Ipedance mode, too avoid perturbing the measurements. (the python script I used to put the target in high impedance can be found on the high_imp folder)
+NB: We also had to desolder the measurement-pin link between the ChipWhisperer and its target, and put the target in high-impedance mode to avoid perturbing the measurements. (The Python script I used to put the target in high impedance can be found in the high_imp folder.)
 
 
-### 4. Baud Rate calculation
+### 4. Baud rate calculation
 
-We now want to determine the baud rate for a clean communication. 
+We now want to determine the baud rate for clean communication.
 
-Using the code content in baud_rate, we figured out that the baud rate is 9600, which is logical if we take a look at the source code.
+Using the code in baud_rate, we figured out that the baud rate is 9600, which is logical if we take a look at the source code.
 
 
 ## D. Power analysis 
 
-### 1. For password lenght
+### 1. For password length
 
-After hours spent trying to find the lenght of the password and still getting the same results. I figured out that maybe the lenght doesn't matters, and the arduino only looks at the first carachters. Which was a good intuition (or maybe a logical thing after 4 hours) This phase can be passed, because not necessary. But the code and results can be found on the folder password_lenght. We can therefore see that as we get always close but different results, what we get only depends on the noise.
+After hours spent trying to find the length of the password and still getting the same results, I figured out that maybe the length doesn't matter, and the Arduino only looks at the first characters. This was a good intuition (or maybe a logical thing after 4 hours). This phase can be skipped because it is not necessary. But the code and results can be found in the password_lenght folder. We can therefore see that, as we always get close but different results, what we get only depends on the noise.
 
 ### 2. For the password characters
 
@@ -109,8 +109,8 @@ also contains unrelated contributions from other instructions, peripherals,
 the clock, and measurement noise; it is not a direct reading of the password
 or of a single instruction.
 
-Consequently, different guesses can make the processor follow different instruction paths
-and perform different amounts of work. If a guess matches a longer prefix,
+Consequently, different guesses can make the processor follow different
+instruction paths and perform different amounts of work. If a guess matches a longer prefix,
 the comparison can proceed further before it exits. Those small execution
 differences may change the power trace. The trigger helps compare traces from
 a consistent point in time, but it does not itself reveal which character is
@@ -136,17 +136,17 @@ contributes to the same measurement.
 
 ![Candidate power traces aligned on the trigger](password_find/password_trigger_power_traces.png)
 
-Sample 0 corresponds to the trigger edge. The grey curves show each
+Sample 0 corresponds to the trigger edge. The gray curves show each
 candidate's averaged trace; the red curve is `f`, and the blue curve is the
 highest-scoring candidate. Their substantial overlap is a reminder that
 small physical differences are difficult to distinguish from noise by eye.
 
-![Candidate score comparison](password_find/password_trigger_power_scores.png)
+<img src="password_find/password_trigger_power_scores.png" alt="Candidate score comparison">
 
-To summarize those curves, the script calculates each candidate's mean
-absolute deviation from the average trace across candidates, over the first
-200 samples after the trigger. A large score means that a candidate's
-averaged trace differs more from the group in this window. It does not
+To summarize those curves, the script calculates the mean absolute deviation
+of each candidate's averaged trace from the average trace across all
+candidates, over the first 200 samples after the trigger. A large score means
+that a candidate's averaged trace differs more from the group in this window. It does not
 directly measure how many password characters matched, nor does it establish
 that the difference was caused by the comparison rather than by residual
 variation.
