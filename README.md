@@ -24,44 +24,7 @@ For sure, this wasn't a good idea if I wanted to be surprised when finding the s
 
 The tree below separates identification from exploitation. It focuses on the power-analysis leakage observed during password validation; the UART is used to submit and confirm the candidate.
 
-flowchart LR
- subgraph identification["Identification"]
-        pins["Identify UART pins and baud rate"]
-        trigger["Identify the trigger and power measurement point"]
-        firmware["Analyze the firmware comparison behavior"]
-  end
- subgraph exploitation["Exploitation"]
-        prerequisites{"AND"}
-        traces["Use power traces to rank character candidates"]
-        submit["Submit the candidate password over UART"]
-        response{"ACCESS GRANTED?"}
-        refine["Refine the candidate and continue through the password"]
-        output["Protected section returns the salt and hash"]
-  end
-    attacker(["Attacker"]) -- Physical access --> physical["Access to the Arduino and measurement points"]
-    attacker -- Serial access --> uart["Access to the UART interface"]
-    physical --> pins & trigger & firmware
-    uart --> pins
-    pins --> prerequisites
-    trigger --> prerequisites
-    firmware --> prerequisites
-    prerequisites --> traces
-    traces --> submit
-    submit --> response
-    response -- No --> refine
-    refine --> traces
-    response -- Yes --> output
-    output --> goal(["Goal: access the protected section and retrieve the salt and hash"])
-    goal --> asset["Asset: password and secret keyphrase"]
-    cm2["Countermeasure: limit failed UART attempts"] -.-> submit
-    cm3["Countermeasure: restrict physical access to measurement points"] -.-> physical
-
-     asset:::asset
-     cm2:::countermeasure
-     cm3:::countermeasure
-    classDef asset fill:#fff,stroke:#555,stroke-dasharray:5 5
-    classDef countermeasure fill:#fff,stroke:#555,stroke-dasharray:5 5
-
+img\Capture d'écran 2026-10-20 122845.png
 ## D. First steps into the attack
 
 ### 1. PulseView
