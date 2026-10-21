@@ -176,6 +176,39 @@ technique turns the power score into a direct measurement of the secret. In
 this experiment, power analysis guides the search; the target's UART response
 confirms the result.
 
+### 4. SPA, DPA, and where this analysis sits
+
+**Why not a simple power analysis (SPA)?** An SPA reads the behavior of the
+code directly from one trace, or a few. Here, the leak is an early exit in the
+comparison, so a correct character only adds one more loop iteration. This
+difference is tiny compared with the measurement noise, and the candidate
+traces largely overlap (see the plots above). A single trace therefore does
+not allow candidates to be told apart; repeating the captures and averaging
+them was necessary. The noise could come from the measurement chain (shunt,
+wiring, bandwidth and resolution of the ChipWhisperer-Nano), but also from
+other activity of the microcontroller. The project did not establish which of
+these is the main cause.
+
+**Why is it not exactly a differential power analysis (DPA)?** As defined in
+the course, a DPA relies on a leakage model (Hamming weight or distance) to
+predict an intermediate value, splits the traces into two groups according to
+that prediction, and looks for a peak in `D(t) = μ1(t) − μ0(t)`. This
+analysis is similar in spirit: it uses many traces with chosen inputs and
+compares averaged traces. It differs in three ways:
+
+- There is no leakage model: no consumption is predicted. The assumed
+  mechanism is only the presence or absence of an extra iteration of the
+  comparison (conditional execution).
+- There is no two-group split by prediction: there is one averaged trace per
+  candidate, compared with the average over all candidates.
+- The decision uses the mean absolute deviation over a window, not a peak of
+  `D(t)` and not a statistical test, so it ranks candidates without
+  validating them. The UART response provides the confirmation.
+
+The analysis is therefore best described as a **simplified, DPA-inspired
+analysis**: an SPA-type leak (conditional execution), too weak for a single
+trace, revealed by averaging and comparing candidates.
+
 ## F. The Secret
 
 The secret retreived is :
