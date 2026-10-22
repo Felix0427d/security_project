@@ -33,7 +33,7 @@ Fonctionnement :
 -> Dans notre cas, on s'en tape parce que on ne modifie rien et on injecte rien, on observe juste. Pour fault injection ca aurait pu changer. Il aurait refusé de s'executer. Les contremesures que je propose restent les memes. Mais pour fault pas besoin de contre mesure a priori ?
 
 **Réponse de ChatGPT :**
-> « Ma méthode principale n’aurait pas changé : j’observe la consommation, sans modifier le firmware. Une signature vérifiée au démarrage aurait empêché l’exécution d’une image modifiée, mais elle ne chiffre pas le firmware et ne protège pas la comparaison du mot de passe contre une fuite de puissance. La signature seule ne suffit pas non plus contre une injection de faute : il faut protéger la vérification et l’exécution contre les glitches. »
+> « Ma méthode principale n’aurait pas changé : j’observe la consommation, sans modifier le firmware. Une signature vérifiée au démarrage aurait empêché l’exécution d’une image modifiée du firmware, mais elle ne chiffre pas le firmware et ne protège pas la comparaison du mot de passe contre une fuite de puissance. La signature seule ne suffit pas non plus contre une injection de faute : il faut protéger la vérification et l’exécution contre les glitches. »
 
 # 3. Could you have used a clock glitching attack (which is not available on the CW-Nano)?
 
