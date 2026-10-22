@@ -38,6 +38,7 @@ def capture_guess(scope, target, guess: str):
 
 def collect_position_traces(scope, target, prefix: str):
     """Capture les essais prefixe+caractere, en reprenant l'analyse du premier caractere."""
+ 
     # Comme dans le script single, vide les reponses serie avant chaque campagne.
     first_char.resync(target)
     captures_by_character = {
