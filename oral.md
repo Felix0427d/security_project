@@ -19,31 +19,28 @@ Fonctionnement :
 
 -> Le fabricant calcule un hash du firmware (SHA-256, par exemple), puis le signe avec sa clé privée (ECDSA, Ed25519, RSA...).
 
--> La signature est livrée avec le firmware.
+-> La signature est livrée avec le firmware, dans le code quoi en gros.
 
 -> L’appareil contient la clé publique du fabricant (en ROM ou dans une zone protégée). Il recalcule le hash du firmware reçu et vérifie la signature avec cette clé publique.
 
 -> Si la vérification échoue, le firmware est rejeté.
 
--> En gros c'est pour qu'on ne change pas le firmware (modifier ou nouveau).
+-> En gros c'est pour qu'on ne change pas le firmware si on y a pas le droit (modifier ou nouveau).
 
--> Dans notre cas, on s'en tape parce que on ne modifie rien et on injecte rien, on observe juste. Pour fault injection ca aurait pu changer. Il aurait refusé de s'executer. Les contremesures que je propose restent les memes.
+-> Dans notre cas, on s'en tape parce que on ne modifie rien et on injecte rien, on observe juste. Pour fault injection ca aurait pu changer. Il aurait refusé de s'executer. Les contremesures que je propose restent les memes. Mais pour fault pas besoin de contre mesure a priori ?
 
 # 3. Could you have used a clock glitching attack (which is not available on the CW-Nano)?
 
-Réponse courte : oui, en théorie, comme alternative ou complément ; mais je ne l'ai pas fait. 
-
-Structure conseillée :
-
+Oui
 -> Principe : le cours classe le glitch d'horloge ou de tension parmi les fault injections. On provoque une erreur au bon moment pour contourner une sécurité (exemple du cours : CLKSCREW, qui contourne une vérification de signature).
 
 Cible dans mon projet : la comparaison du mot de passe. Un glitch au moment du test pourrait le faire sauter ou mal l'évaluer, et donner ACCESS GRANTED sans connaître le mot de passe.
 
 -> Ce dont j'ai déjà besoin : un repère temporel. J'ai le trigger sur la LED (broche 13), allumée pendant la vérification. Cela correspond à la logique du cours : l'identification (trouver l'instant) est coûteuse, l'exploitation (le glitch) est reproductible.
 
--> Avantage : le résultat est direct (accès accordé ou non), sans statistiques sur des traces bruitées comme dans mon analyse.
+-> Avantage : le résultat est direct (accès accordé ou non), sans statistique sur des trace bruité comme dans monanalyse.
 
--> Difficultés : trouver la bonne fenêtre (décalage, largeur) par balayage. Beaucoup d'essais échouent ou provoquent des réinitialisations. Il faut aussi pouvoir injecter sur l'horloge de l'ATmega328P, qui vient du quartz externe. Mon matériel ne le permet pas, donc je ne peux pas affirmer que cela marcherait.
+-> Difficulte : trouver la bonne fenêtre (décalage, largeur) par balayage. Beaucoup d'essais échouent ou provoquent des réinitialisations. Il faut aussi pouvoir injecter sur l'horloge de l'ATmega328P, qui vient du quartz externe. Mon matériel ne le permet pas, donc je ne peux pas affirmer que cela marcherait.
 
 # 4. How would a white-box system have changed your approach?
 
