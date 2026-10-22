@@ -306,3 +306,7 @@ cooldown. The sketch is a lab example, not production-ready secret storage: its
 password and protected data remain in firmware, and restricting access to the
 measurement point still requires a hardware enclosure and board-level design
 changes.
+
+### 3. Delete the trigger pin
+
+If we delete the trigger pin, the attacker will have one more job. Find a way to synchronize with the board durong password check, by finding the exact momenrt of the checki.
