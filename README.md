@@ -307,6 +307,12 @@ password and protected data remain in firmware, and restricting access to the
 measurement point still requires a hardware enclosure and board-level design
 changes.
 
-### 3. Delete the trigger pin
+### 3. Remove the trigger pin
 
-If we delete the trigger pin, the attacker will have one more job. Find a way to synchronize with the board durong password check, by finding the exact momenrt of the checki.
+Removing the trigger pin makes power analysis more difficult because it
+removes the attacker's timing reference during the password check. The attacker
+would then need to identify the relevant moment from the available
+measurements, which makes traces harder to align and compare. This is an
+additional obstacle, not a complete countermeasure: power consumption may
+still reveal information, so the password comparison itself must also be
+designed to avoid data-dependent execution.
